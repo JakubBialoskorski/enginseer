@@ -1,11 +1,12 @@
 # Enginseer
 
-A small English-only assistant for DevOps, Linux (Gentoo), Pi-hole/unbound and MeshCore/Meshtastic, published as GGUF. The project is built in two stages:
+A small English-only language model for DevOps (Kubernetes, Docker, OpenTofu, GitHub Actions, Prometheus, nginx), OpenRC, unbound and MeshCore, written and trained from scratch and published as GGUF.
 
-1. **enginseer-4b**: a QLoRA fine-tune of [Qwen3-4B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507). It is trained on Q&A pairs generated only from real, openly licensed documentation. It includes examples of answering "I don't know" instead of inventing flags and commands.
-2. **enginseer-tiny**: a ~20–30M parameter Llama-compatible GPT (RMSNorm, RoPE, SwiGLU) with its own BPE tokenizer, written and pretrained from scratch on TinyStories. Its weights are exported to the Hugging Face `LlamaForCausalLM` format and converted to GGUF with the stock llama.cpp converter.
+- **Architecture:** Llama-compatible (RMSNorm, RoPE, SwiGLU), ~125M parameters, written in plain PyTorch. The weights are exported to the Hugging Face `LlamaForCausalLM` format and converted to GGUF with the stock llama.cpp converter.
+- **Pipeline:** own BPE tokenizer, pretraining with a hand-written training loop, then instruction tuning on Q&A pairs generated only from real documentation, including examples of answering "I don't know" instead of inventing flags and commands.
+- **Data:** permissively licensed sources only (CC-BY, Apache, MIT, BSD, MPL, ODC-BY), with every source and its license recorded.
 
-Status: work in progress. The environment is ready, and documentation collection is next.
+Status: work in progress. The environment is ready, and data collection is next.
 
 ## Setup
 
