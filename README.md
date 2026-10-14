@@ -6,7 +6,7 @@ A small English-only language model for DevOps (Kubernetes, Docker, OpenTofu, Gi
 - **Pipeline:** own BPE tokenizer, pretraining with a hand-written training loop, then instruction tuning on Q&A pairs generated only from real documentation, including examples of answering "I don't know" instead of inventing flags and commands.
 - **Data:** permissively licensed sources only (CC-BY, Apache, MIT, BSD, MPL, ODC-BY), with every source and its license recorded.
 
-Status: work in progress. The environment is ready, and data collection is next.
+Status: work in progress. The environment and the data (documentation plus the general corpus) are ready. The tokenizer is next.
 
 ## Setup
 
@@ -20,11 +20,11 @@ This creates `.venv/`, installs pinned dependencies and creates the working dire
 
 | Directory | Contents |
 |---|---|
-| `data/` | source docs and generated datasets |
+| `data/` | source docs, pretraining corpus, generated datasets |
 | `out/` | checkpoints, merged weights, GGUF files |
 | `cache/` | Hugging Face downloads |
 
-By default they live inside the repo. To keep `out/` and `cache/` on another disk, create a `.env` file before running `setup.sh`:
+By default they live inside the repo. They grow to tens of GB, so to keep them on another disk, create a `.env` file before running `setup.sh`:
 
 ```sh
 ENGINSEER_STORAGE=/path/to/big/disk/enginseer
