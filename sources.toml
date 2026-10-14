@@ -1,7 +1,9 @@
 # Documentation sources for the stage 1 dataset.
 # Only permissive licenses (CC-BY, Apache, MIT, BSD, MPL); copyleft sources (GPL, CC-BY-SA) are excluded on purpose.
 # Every entry records its license; the list is the basis of the model card's data section.
-# Each source is a shallow, sparse clone of `paths` (all of the repo when empty).
+# Each source is a shallow, sparse clone of `paths` (all of the repo when empty). Only files under `docs`
+# (default: `paths`) become documents; the rest are includes and examples pulled in while cleaning.
+# `format` picks the cleaner in scripts/doc_cleaners.py.
 
 # ---------------------------------------------------------------- DevOps
 
@@ -9,14 +11,18 @@
 name = "kubernetes"
 domain = "devops"
 url = "https://github.com/kubernetes/website.git"
-paths = ["content/en/docs"]
+paths = ["content/en/docs", "content/en/examples", "content/en/includes"]
+docs = ["content/en/docs"]
+format = "hugo-k8s"
 license = "CC-BY-4.0"
 
 [[source]]
 name = "docker"
 domain = "devops"
 url = "https://github.com/docker/docs.git"
-paths = ["content/manuals"]
+paths = ["content/manuals", "content/includes"]
+docs = ["content/manuals"]
+format = "hugo-docker"
 license = "Apache-2.0"
 
 [[source]]
@@ -24,13 +30,16 @@ name = "opentofu"
 domain = "devops"
 url = "https://github.com/opentofu/opentofu.git"
 paths = ["website/docs"]
+format = "mdx"
 license = "MPL-2.0"
 
 [[source]]
 name = "github-actions"
 domain = "devops"
 url = "https://github.com/github/docs.git"
-paths = ["content/actions"]
+paths = ["content/actions", "data/variables", "data/reusables"]
+docs = ["content/actions"]
+format = "liquid-github"
 license = "CC-BY-4.0"
 
 [[source]]
@@ -38,6 +47,7 @@ name = "prometheus"
 domain = "devops"
 url = "https://github.com/prometheus/docs.git"
 paths = ["docs"]
+format = "markdown"
 license = "Apache-2.0"
 
 [[source]]
@@ -45,6 +55,7 @@ name = "prometheus-server"
 domain = "devops"
 url = "https://github.com/prometheus/prometheus.git"
 paths = ["docs"]
+format = "markdown"
 license = "Apache-2.0"
 
 [[source]]
@@ -52,6 +63,7 @@ name = "nginx"
 domain = "devops"
 url = "https://github.com/nginx/nginx.org.git"
 paths = ["xml/en/docs"]
+format = "nginx-xml"
 license = "BSD-2-Clause"
 
 [[source]]
@@ -59,14 +71,26 @@ name = "openrc"
 domain = "linux"
 url = "https://github.com/OpenRC/openrc.git"
 paths = ["man"]
+docs = ["man", "user-guide.md", "service-script-guide.md", "init-guide.md", "supervise-daemon-guide.md", "agetty-guide.md", "runit-guide.md", "s6-guide.md", "BUSYBOX.md", "NEWNET.md"]
+format = "markdown"
 license = "BSD-2-Clause"
 
 [[source]]
 name = "unbound"
-domain = "pihole"
+domain = "dns"
 url = "https://github.com/NLnetLabs/unbound-manual.git"
 paths = ["source"]
+format = "rst"
 license = "BSD-3-Clause"
+
+[[source]]
+name = "unbound-man"
+domain = "dns"
+url = "https://github.com/NLnetLabs/unbound.git"
+paths = ["doc"]
+format = "rst"
+license = "BSD-3-Clause"
+note = "man page sources (unbound.conf, unbound-control, ...); the unbound-manual repo only links them through a submodule"
 
 # ---------------------------------------------------------------- Mesh
 
@@ -75,6 +99,7 @@ name = "meshcore"
 domain = "mesh"
 url = "https://github.com/meshcore-dev/MeshCore.git"
 paths = ["docs"]
+format = "markdown"
 license = "MIT"
 
 [[source]]
@@ -82,5 +107,6 @@ name = "meshcore-wiki"
 domain = "mesh"
 url = "https://github.com/meshcore-dev/MeshCore.wiki.git"
 paths = []
+format = "markdown"
 license = "MIT"
 note = "GitHub wiki of the MeshCore repo; no separate license stated, assumed to follow the repo's MIT license"
