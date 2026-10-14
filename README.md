@@ -20,11 +20,11 @@ This creates `.venv/`, installs pinned dependencies and creates the working dire
 
 | Directory | Contents |
 |---|---|
-| `data/` | source docs and generated datasets |
+| `data/` | source docs, pretraining corpus, generated datasets |
 | `out/` | checkpoints, merged weights, GGUF files |
 | `cache/` | Hugging Face downloads |
 
-By default they live inside the repo. To keep `out/` and `cache/` on another disk, create a `.env` file before running `setup.sh`:
+By default they live inside the repo. They grow to tens of GB, so to keep them on another disk, create a `.env` file before running `setup.sh`:
 
 ```sh
 ENGINSEER_STORAGE=/path/to/big/disk/enginseer

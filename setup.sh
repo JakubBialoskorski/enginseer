@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Sets up the local environment: venv, dependencies and storage directories.
 #
-# By default everything lives inside the repo: data/, out/ (weights, GGUFs,
-# checkpoints) and cache/ (Hugging Face downloads). To keep the large ones on
-# another disk, create a .env file next to this script, e.g.:
+# By default everything lives inside the repo: data/ (docs and the pretraining
+# corpus), out/ (weights, GGUFs, checkpoints) and cache/ (Hugging Face downloads).
+# They grow to tens of GB. To keep them on another disk, create a .env file next
+# to this script, e.g.:
 #   ENGINSEER_STORAGE=/mnt/hddgry/enginseer
-# out/ and cache/ then become symlinks into that directory.
+# data/, out/ and cache/ then become symlinks into that directory.
 #
 # Other optional .env settings:
 #   PYTHON=python3.12                                       interpreter for the venv
@@ -19,8 +20,7 @@ PYTHON=${PYTHON:-python3.12}
 TORCH_INDEX=${TORCH_INDEX:-https://download.pytorch.org/whl/cu130}
 LLAMA_CPP=${LLAMA_CPP:-/opt/llama.cpp}
 
-mkdir -p data
-for dir in out cache; do
+for dir in data out cache; do
     if [ -n "${ENGINSEER_STORAGE:-}" ]; then
         if [ -e "$dir" ] && [ ! -L "$dir" ]; then
             echo "$dir/ is a real directory; move its contents to $ENGINSEER_STORAGE/$dir and remove it first" >&2
