@@ -129,3 +129,13 @@ files = ["data/openstax/*.parquet", "data/khanacademy/*.parquet", "data/wikihow/
          "data/stanford/train-0000[0-2]-*.parquet"]
 license = "Apache-2.0"
 note = "synthetic textbooks generated with Mixtral-8x7B-Instruct (Apache-2.0)"
+
+# ---------------------------------------------------------------- general chat for SFT (Hugging Face datasets)
+# Prepared with scripts/prep_oasst.py into data/sft/oasst2.jsonl.
+
+[[sft]]
+name = "oasst2"
+dataset = "OpenAssistant/oasst2"
+files = ["data/train-00000-of-00001-88ba0162028a73fc.parquet", "data/validation-00000-of-00001-1deeef95c3248fe0.parquet"]
+license = "Apache-2.0"
+note = "human-written conversations; English threads only, top-ranked assistant replies"
