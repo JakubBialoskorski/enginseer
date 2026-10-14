@@ -6,7 +6,7 @@ A small English-only language model for DevOps (Kubernetes, Docker, OpenTofu, Gi
 - **Pipeline:** own BPE tokenizer, pretraining with a hand-written training loop, then instruction tuning on Q&A pairs generated only from real documentation, including examples of answering "I don't know" instead of inventing flags and commands.
 - **Data:** permissively licensed sources only (CC-BY, Apache, MIT, BSD, MPL, ODC-BY), with every source and its license recorded.
 
-Status: work in progress. The environment is ready, and data collection is next.
+Status: work in progress. The environment and the data (documentation plus the general corpus) are ready. The tokenizer is next.
 
 ## Setup
 
