@@ -1,0 +1,86 @@
+# Documentation sources for the stage 1 dataset.
+# Only permissive licenses (CC-BY, Apache, MIT, BSD, MPL); copyleft sources (GPL, CC-BY-SA) are excluded on purpose.
+# Every entry records its license; the list is the basis of the model card's data section.
+# Each source is a shallow, sparse clone of `paths` (all of the repo when empty).
+
+# ---------------------------------------------------------------- DevOps
+
+[[source]]
+name = "kubernetes"
+domain = "devops"
+url = "https://github.com/kubernetes/website.git"
+paths = ["content/en/docs"]
+license = "CC-BY-4.0"
+
+[[source]]
+name = "docker"
+domain = "devops"
+url = "https://github.com/docker/docs.git"
+paths = ["content/manuals"]
+license = "Apache-2.0"
+
+[[source]]
+name = "opentofu"
+domain = "devops"
+url = "https://github.com/opentofu/opentofu.git"
+paths = ["website/docs"]
+license = "MPL-2.0"
+
+[[source]]
+name = "github-actions"
+domain = "devops"
+url = "https://github.com/github/docs.git"
+paths = ["content/actions"]
+license = "CC-BY-4.0"
+
+[[source]]
+name = "prometheus"
+domain = "devops"
+url = "https://github.com/prometheus/docs.git"
+paths = ["docs"]
+license = "Apache-2.0"
+
+[[source]]
+name = "prometheus-server"
+domain = "devops"
+url = "https://github.com/prometheus/prometheus.git"
+paths = ["docs"]
+license = "Apache-2.0"
+
+[[source]]
+name = "nginx"
+domain = "devops"
+url = "https://github.com/nginx/nginx.org.git"
+paths = ["xml/en/docs"]
+license = "BSD-2-Clause"
+
+[[source]]
+name = "openrc"
+domain = "linux"
+url = "https://github.com/OpenRC/openrc.git"
+paths = ["man"]
+license = "BSD-2-Clause"
+
+[[source]]
+name = "unbound"
+domain = "pihole"
+url = "https://github.com/NLnetLabs/unbound-manual.git"
+paths = ["source"]
+license = "BSD-3-Clause"
+
+# ---------------------------------------------------------------- Mesh
+
+[[source]]
+name = "meshcore"
+domain = "mesh"
+url = "https://github.com/meshcore-dev/MeshCore.git"
+paths = ["docs"]
+license = "MIT"
+
+[[source]]
+name = "meshcore-wiki"
+domain = "mesh"
+url = "https://github.com/meshcore-dev/MeshCore.wiki.git"
+paths = []
+license = "MIT"
+note = "GitHub wiki of the MeshCore repo; no separate license stated, assumed to follow the repo's MIT license"
