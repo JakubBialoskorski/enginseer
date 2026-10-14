@@ -1,0 +1,38 @@
+# ~13M parameters on 100M tokens: a pipeline check (loss goes down, resume works, export and GGUF load), not a model
+
+[model]
+vocab_size = 32768
+dim = 256
+n_layers = 6
+n_heads = 4
+n_kv_heads = 4
+ffn_dim = 704
+max_seq_len = 1024
+
+[train]
+total_tokens = 100_000_000
+micro_batch = 32
+grad_accum = 4
+lr = 2e-3
+min_lr_ratio = 0.1
+warmup_steps = 50
+weight_decay = 0.1
+grad_clip = 1.0
+anneal_fraction = 0.1
+seed = 0
+log_every = 10
+eval_every = 100
+eval_tokens = 262_144
+ckpt_minutes = 5
+
+# share of training tokens per source
+[mix]
+fineweb-edu = 0.80
+cosmopedia = 0.17
+docs = 0.03
+
+# used for the last anneal_fraction of the steps, while the learning rate decays
+[anneal]
+fineweb-edu = 0.60
+cosmopedia = 0.15
+docs = 0.25
