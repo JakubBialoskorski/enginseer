@@ -110,3 +110,21 @@ paths = []
 format = "markdown"
 license = "MIT"
 note = "GitHub wiki of the MeshCore repo; no separate license stated, assumed to follow the repo's MIT license"
+
+# ---------------------------------------------------------------- general pretraining corpus (Hugging Face datasets)
+# Downloaded with scripts/fetch_corpus.py into data/corpus/<name>/; `files` are glob patterns inside the dataset repo.
+
+[[corpus]]
+name = "fineweb-edu"
+dataset = "HuggingFaceFW/fineweb-edu"
+files = ["sample/10BT/000_00000.parquet", "sample/10BT/001_00000.parquet", "sample/10BT/002_00000.parquet"]
+license = "ODC-BY-1.0"
+note = "about 0.7B tokens per file"
+
+[[corpus]]
+name = "cosmopedia"
+dataset = "HuggingFaceTB/cosmopedia"
+files = ["data/openstax/*.parquet", "data/khanacademy/*.parquet", "data/wikihow/*.parquet",
+         "data/stanford/train-0000[0-2]-*.parquet"]
+license = "Apache-2.0"
+note = "synthetic textbooks generated with Mixtral-8x7B-Instruct (Apache-2.0)"
