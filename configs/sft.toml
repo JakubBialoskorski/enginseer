@@ -1,0 +1,23 @@
+# SFT of the 140M base model (out/runs/base/final.pt) on data/sft/{train,val}.npz from build_sft.py
+
+[train]
+base = "base"
+epochs = 3
+micro_tokens = 8192          # padded tokens per micro-batch: 64 x 128 ... 8 x 1024
+grad_accum = 8
+lr = 1e-4                    # the learning rate pretraining ended with
+min_lr_ratio = 0.1
+warmup_steps = 30
+weight_decay = 0.1
+grad_clip = 1.0
+seed = 0
+log_every = 10
+eval_every = 100
+
+# times every example kind is seen per epoch
+[repeat]
+qa = 1
+trick = 1
+translated = 1
+oasst = 1
+identity = 2
