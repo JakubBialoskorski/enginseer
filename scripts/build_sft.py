@@ -73,7 +73,9 @@ class Encoder:
 
 def qa_examples():
     for row in map(json.loads, open(DATA / "sft" / "qa.jsonl")):
-        split = "val" if int(hashlib.sha256(row["doc"].encode()).hexdigest()[:8], 16) / 2**32 < VAL_FRACTION else "train"
+        # salted: the unsalted hash of the doc path is chunk_docs.py's held-out rule, so these docs all pass it
+        digest = hashlib.sha256(f"sft-val/{row['doc']}".encode()).hexdigest()
+        split = "val" if int(digest[:8], 16) / 2**32 < VAL_FRACTION else "train"
         for fact in row["facts"]:
             if LEAK.search(fact["answer"]):
                 continue
