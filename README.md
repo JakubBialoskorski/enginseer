@@ -115,7 +115,7 @@ scripts/run_teacher.sh --until 07:30   # starts llama-server with TEACHER_GGUF f
 .venv/bin/python scripts/build_sft.py
 ```
 
-Generation took ~23 h on the RTX 3060 (the MoE experts partly run on the CPU, ~40 output tokens/s over 4 parallel requests). It covered all 5,127 chunks with at least 80 tokens: 18,373 facts with 73,368 questions, 5,127 trick questions and 517 translated questions. `build_sft.py` drops answers that leak the setup ("the excerpt", "the documentation says"). That removes 23 fact answers but 12% of the trick answers, which tend to explain what the docs do list instead. Validation is a 2% split by source document, so no paraphrase of a val fact is trained on, plus oasst2's own validation split.
+Generation took ~23 h on the RTX 3060 (the MoE experts partly run on the CPU, ~40 output tokens/s over 4 parallel requests). It covered all 5,127 chunks with at least 80 tokens: 18,373 facts with 73,368 questions, 5,127 trick questions and 517 translated questions. `build_sft.py` drops answers that leak the setup ("the excerpt", "the documentation says"). That removes 23 fact answers but 12% of the trick answers, which tend to explain what the docs do list instead. Validation is a 2% split by source document, so no paraphrase of a val fact is trained on. Those documents were still part of pretraining (where the docs repeat about 8 times), so this split measures recall of text the model has read, not knowledge of new documentation. For that, validation also includes questions generated the same way from the held-out docs that neither pretraining nor SFT saw (`heldout`, see [Evaluation](#evaluation)), plus oasst2's own validation split.
 
 | Kind | Train examples | Train answer tokens | Val examples |
 |---|---|---|---|
