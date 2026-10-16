@@ -4,6 +4,7 @@
 
 Output: data/eval/chunks-heldout.jsonl, the input for eval Q&A generation:
   scripts/run_teacher.sh --chunks data/eval/chunks-heldout.jsonl --out data/eval/qa-heldout.jsonl
+and data/eval/heldout.txt, the same documents as plain text for llama-perplexity (f16 vs quantized GGUF).
 Neither pretraining nor SFT ever sees these documents, so questions about them measure generalization.
 """
 
@@ -21,11 +22,12 @@ def main():
     out = DATA / "eval" / "chunks-heldout.jsonl"
     out.parent.mkdir(parents=True, exist_ok=True)
     docs = chunks = 0
-    with open(out, "w") as f:
+    with open(out, "w") as f, open(DATA / "eval" / "heldout.txt", "w") as txt:
         for doc in map(json.loads, open(DATA / "docs.jsonl")):
             if doc["split"] != "heldout":
                 continue
             docs += 1
+            txt.write(doc["text"] + "\n\n")
             for i, (head, body, n) in enumerate(pack(split_sections(doc["text"]), count, 1500)):
                 f.write(json.dumps({
                     "id": f"{doc['id']}#{i}", "doc": doc["id"], "source": doc["source"], "domain": doc["domain"],
