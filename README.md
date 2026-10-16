@@ -132,3 +132,43 @@ Only the answers and their closing `<|im_end|>` are trained on, and generation s
 ```
 
 On the 13M test model (`configs/sft-test.toml`, one epoch, 202 steps, 5 minutes), validation loss fell from 4.83 to 3.72 on Q&A, from 4.56 to 2.91 on trick questions and from 4.08 to 3.86 on oasst2.
+
+## Evaluation
+
+Three kinds of measurement, all run on the same machine with the same code for every model:
+
+```sh
+.venv/bin/python scripts/eval_lm.py base sft openai-community/gpt2 HuggingFaceTB/SmolLM-135M HuggingFaceTB/SmolLM2-135M
+.venv/bin/python scripts/eval_judge.py answer sft --gguf out/runs/sft/sft-q8_0.gguf
+scripts/run_teacher.sh scripts/eval_judge.py judge sft
+.venv/bin/python scripts/eval_judge.py report
+```
+
+**Language modelling** (`eval_lm.py`). Bits per byte on our validation text, held-out docs plus FineWeb-Edu and Cosmopedia documents nobody trained on here. Each model reads the same raw text with its own tokenizer, so the numbers compare across tokenizers. Zero-shot HellaSwag, WinoGrande and LAMBADA are scored by log-likelihood as in lm-evaluation-harness. For GPT-2 the script reproduces the harness's published numbers exactly (HellaSwag acc_norm 0.312, WinoGrande 0.516, LAMBADA 0.326 / perplexity 40.1). Only benchmarks under permissive licenses are used, so ARC is left out.
+
+| Model | Training tokens | bpb docs | bpb FineWeb-Edu | bpb Cosmopedia | HellaSwag | WinoGrande | LAMBADA acc | LAMBADA ppl |
+|---|---|---|---|---|---|---|---|---|
+| GPT-2 124M | WebText, 40 GB of text | 1.051 | 0.983 | 0.829 | 0.312 | 0.516 | 0.326 | 40.1 |
+| SmolLM-135M | 600B | 0.831 | 0.838 | 0.479* | 0.427 | 0.533 | 0.377 | 32.3 |
+| SmolLM2-135M | 2T | 0.768 | 0.842 | 0.513* | 0.432 | 0.530 | 0.429 | 19.3 |
+| Enginseer test, 13M | 0.1B | 1.306 | 1.439 | 1.128 | 0.253 | 0.514 | 0.008 | 28,412 |
+
+\* SmolLM was trained on Cosmopedia itself, so its Cosmopedia numbers are not a fair comparison. The public models may also have seen web copies of the documentation.
+
+**Answer quality** (`eval_judge.py`). The chat model answers questions written by the teacher in three groups, which separate memorization from generalization:
+
+- *sft*: questions the model was trained on.
+- *pretrain*: questions about documents that were in pretraining but had no questions in SFT.
+- *heldout*: questions about the 153 held-out documents that neither stage saw, generated the same way (`scripts/chunk_heldout.py`, then `gen_qa.py --chunks`).
+
+Each group has up to 300 fact questions and 300 trick questions about options that do not exist. The teacher grades each answer against the reference as correct, partial or wrong and gives a one-sentence reason. On trick questions, correct means the model says there is no such option and makes nothing up afterwards. A regex also counts "I'm not aware"-style answers, independent of the judge.
+
+The baseline is SmolLM2-135M-Instruct, a model of the same size trained on 2T tokens, converted to Q8_0 GGUF and asked the same questions:
+
+| Model | Group | Facts correct / partial | Tricks correct / partial | "Not aware" on tricks (regex) |
+|---|---|---|---|---|
+| SmolLM2-135M-Instruct | sft | 1.0% / 0.7% | 0.0% / 0.3% | 0.3% |
+| SmolLM2-135M-Instruct | pretrain | 0.4% / 0.7% | 0.0% / 0.0% | 0.0% |
+| SmolLM2-135M-Instruct | heldout | 0.3% / 1.0% | 0.0% / 0.3% | 1.3% |
+
+At this size a general model knows almost none of these specific facts, and it accepts every invented flag as real: in the judge's words, it "hallucinates a non-existent command `pod-suspend` and falsely claims the `--force-suspend` flag exists". Here SmolLM2's "sft" and "pretrain" groups are just question sets, since it never trained on them.
