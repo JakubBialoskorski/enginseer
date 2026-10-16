@@ -7,7 +7,9 @@ Every example is a ChatML conversation, starting with <s>:
 Only the answer tokens and their closing <|im_end|> are trained on; the model stops generating at <|im_end|>.
 
 Each fact's 3-4 paraphrased questions become separate examples with the same answer. Q&A val is a 2% split by
-source document, so the paraphrases of a val fact never show up in training. oasst2 keeps its own val split.
+source document, so the paraphrases of a val fact never show up in training; the documents themselves were in
+pretraining, though. Val also gets Q&A about the held-out docs, if data/eval/qa-heldout.jsonl exists (kinds
+"heldout" and "heldout-trick"), which neither pretraining nor SFT saw. oasst2 keeps its own val split.
 Answers that leak the generation setup ("the excerpt", "the documentation says") are dropped.
 
 Output: data/sft/{train,val}.npz with the token ids (uint16), loss mask (bool), example offsets and kinds.
@@ -87,6 +89,20 @@ def qa_examples():
             yield split, "translated", [row["translated"], row["facts"][0]["answer"]]
 
 
+def heldout_examples():
+    """Val only: Q&A about the held-out docs (data/eval/qa-heldout.jsonl), which pretraining never saw either."""
+    path = DATA / "eval" / "qa-heldout.jsonl"
+    if not path.exists():
+        return
+    for row in map(json.loads, open(path)):
+        for fact in row["facts"]:
+            if not LEAK.search(fact["answer"]):
+                for q in fact["questions"]:
+                    yield "val", "heldout", [q, fact["answer"]]
+        if not LEAK.search(row["trick"]["answer"]):
+            yield "val", "heldout-trick", [row["trick"]["question"], row["trick"]["answer"]]
+
+
 def oasst_examples():
     for row in map(json.loads, open(DATA / "sft" / "oasst2.jsonl")):
         yield row["split"], "oasst", [m["content"] for m in row["messages"]]
@@ -104,7 +120,7 @@ def main():
     splits = {s: {"ids": [], "mask": [], "offsets": [0], "kinds": []} for s in ("train", "val")}
     stats = Counter()
 
-    for gen in (qa_examples(), oasst_examples(), identity_examples()):
+    for gen in (qa_examples(), heldout_examples(), oasst_examples(), identity_examples()):
         for split, kind, turns in gen:
             messages = [{"role": "user" if i % 2 == 0 else "assistant", "content": t.strip()}
                         for i, t in enumerate(turns)]
