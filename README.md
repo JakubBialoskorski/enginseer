@@ -6,7 +6,7 @@ A small English-only language model for DevOps (Kubernetes, Docker, OpenTofu, Gi
 - **Pipeline:** own SentencePiece BPE tokenizer (32k vocab), pretraining with a hand-written training loop, then instruction tuning on Q&A pairs generated only from real documentation, including examples of answering "I don't know" instead of inventing flags and commands.
 - **Data:** permissively licensed sources only (CC-BY, Apache, MIT, BSD, MPL, ODC-BY), with every source and its license recorded.
 
-Status: work in progress. The environment, the data (documentation plus the general corpus), the tokenizer and the pretraining code are ready, verified end to end on a small test model. The full pretraining run is next.
+Status: work in progress. The environment, the data (documentation plus the general corpus), the tokenizer, the pretraining code and the instruction-tuning data and code are ready, verified end to end on a small test model. The full pretraining run is next.
 
 ## Setup
 
@@ -115,3 +115,46 @@ The anneal phase (the last 591 steps) brought the docs from 0.776 to 0.754, whil
 ```
 
 `export_hf.py` writes a `LlamaForCausalLM` directory and checks its logits against our model. `check_gguf.py` loads the GGUF in `llama-server` and compares it with SentencePiece and PyTorch. On the test model, all 1409 tokenizer eval docs get identical token ids, the top-1 next token matches on 32 of 32 held-out prefixes, and the top-10 log-probabilities differ by 0.002 on average (f16 vs fp32). On the 140M base model the export is again bit-identical, the tokenizer check passes on all 1409 docs, the top-1 token matches on 32 of 32 prefixes and the top-10 log-probabilities differ by 0.007 on average (max 0.039).
+
+## Instruction tuning
+
+The chat data is built from three parts, all in ChatML (`<|im_start|>user … <|im_end|>`):
+
+1. **Grounded Q&A from the domain docs.** A local teacher, Qwen3.6-35B-A3B (Apache-2.0) in llama.cpp, reads one documentation chunk at a time and writes the key facts in it as JSON (the schema is enforced by the server). Each fact gets one answer and 3–4 differently worded questions, so the model learns the fact and not one phrasing of it. Each chunk also gets one trick question about an option that does not exist, answered with "I'm not aware of…", and about every tenth chunk gets one question translated to German, French, Spanish, Italian, Portuguese or Dutch, still with the English answer. Chunks from generated API references get at most three facts.
+2. **General chat:** English threads from [oasst2](https://huggingface.co/datasets/OpenAssistant/oasst2) (Apache-2.0), following the top-ranked reply at each turn. Deleted, unreviewed, synthetic and toxic messages are dropped, and so are threads where the assistant calls itself Open Assistant.
+3. **Identity:** a few dozen "Who are you?" examples, so the model calls itself Enginseer and admits that it is small.
+
+```sh
+scripts/run_teacher.sh --until 07:30   # starts llama-server with TEACHER_GGUF from .env; resumable
+.venv/bin/python scripts/prep_oasst.py
+.venv/bin/python scripts/build_sft.py
+```
+
+Generation took ~23 h on the RTX 3060 (the MoE experts partly run on the CPU, ~40 output tokens/s over 4 parallel requests). It covered all 5,127 chunks with at least 80 tokens: 18,373 facts with 73,368 questions, 5,127 trick questions and 517 translated questions. `build_sft.py` drops answers that leak the setup ("the excerpt", "the documentation says"). That removes 23 fact answers but 12% of the trick answers, which tend to explain what the docs do list instead. Validation is a 2% split by source document, so no paraphrase of a val fact is trained on, plus oasst2's own validation split.
+
+| Kind | Train examples | Train answer tokens | Val examples |
+|---|---|---|---|
+| Q&A | 72,188 | 4.50M | 1,088 |
+| Trick | 4,465 | 0.25M | 60 |
+| Translated | 513 | 0.03M | 4 |
+| oasst2 | 4,963 | 1.77M | 265 |
+| Identity | 24 | <0.01M | – |
+
+Only the answers and their closing `<|im_end|>` are trained on, and generation stops at `<|im_end|>`. `scripts/sft.py` starts from the pretrained checkpoint and groups examples into length buckets of 128/256/512/1024 tokens with a fixed token budget per micro-batch, so short Q&A pairs are not padded to the full context. The loss is averaged over all answer tokens of a step, and validation loss is reported per kind.
+
+```sh
+.venv/bin/python scripts/sft.py configs/sft.toml
+```
+
+On the 13M test model (`configs/sft-test.toml`, one epoch, 202 steps, 5 minutes), validation loss fell from 4.83 to 3.72 on Q&A, from 4.56 to 2.91 on trick questions and from 4.08 to 3.86 on oasst2.
+
+On the 140M base model (`configs/sft.toml`) one epoch is 203 steps and takes 14 minutes. Validation loss per answer token:
+
+| Kind | Base model | 1 epoch | 3 epochs |
+|---|---|---|---|
+| Q&A | 3.002 | 2.202 | 2.761 |
+| Trick | 3.059 | 1.700 | 1.784 |
+| Translated | 2.675 | 1.727 | 2.109 |
+| oasst2 | 2.326 | 2.112 | 2.173 |
+
+A first run for three epochs overfit: Q&A validation loss was lowest after about half an epoch (2.23) and rose to 2.76 by the end, while training loss fell below 1. The model memorised the trained answers instead of the facts, so the config trains for one epoch and repeats the identity examples six times instead. After SFT the model calls itself Enginseer, answers in a few sentences, stops at `<|im_end|>` and declines some invented options ("I am not aware of a `--auto-heal` flag for `docker run`"), but the commands and keys it gives are often made up.
