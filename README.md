@@ -206,12 +206,17 @@ Q8_0 is lossless within noise and Q4_K_M costs 0.7%. Because the model is 640 wi
 
 Each group has up to 300 fact questions and 300 trick questions about options that do not exist. The teacher grades each answer against the reference as correct, partial or wrong and gives a one-sentence reason. On trick questions, correct means the model says there is no such option and makes nothing up afterwards. A regex also counts "I'm not aware"-style answers, independent of the judge.
 
-The baseline is SmolLM2-135M-Instruct, a model of the same size trained on 2T tokens, converted to Q8_0 GGUF and asked the same questions:
+The baseline is SmolLM2-135M-Instruct, a model of the same size trained on 2T tokens, converted to Q8_0 GGUF and asked the same questions. The pretrain group has 273 fact and 75 trick questions, as not more documents qualify:
 
 | Model | Group | Facts correct / partial | Tricks correct / partial | "Not aware" on tricks (regex) |
 |---|---|---|---|---|
 | SmolLM2-135M-Instruct | sft | 1.0% / 0.7% | 0.0% / 0.3% | 0.3% |
 | SmolLM2-135M-Instruct | pretrain | 0.4% / 0.7% | 0.0% / 0.0% | 0.0% |
 | SmolLM2-135M-Instruct | heldout | 0.3% / 1.0% | 0.0% / 0.3% | 1.3% |
+| Enginseer SFT, Q8_0 | sft | 8.3% / 5.3% | 10.0% / 42.0% | 86.0% |
+| Enginseer SFT, Q8_0 | pretrain | 2.6% / 1.8% | 5.3% / 41.3% | 85.3% |
+| Enginseer SFT, Q8_0 | heldout | 3.3% / 1.7% | 10.7% / 36.7% | 87.0% |
 
 At this size a general model knows almost none of these specific facts, and it accepts every invented flag as real: in the judge's words, it "hallucinates a non-existent command `pod-suspend` and falsely claims the `--force-suspend` flag exists". Here SmolLM2's "sft" and "pretrain" groups are just question sets, since it never trained on them.
+
+Enginseer answers 8% of the trained fact questions correctly, but only 3% about documents it read in pretraining or never saw, so SFT taught it mostly the trained answers, not to recall what it read. It is still more than SmolLM2 gets, because it knows the products and the shape of a right answer (`kubectl proxy --port=8080`, the `labelSelector` query parameter). On trick questions it learned to decline, on held-out docs as well as trained ones: 87% of its answers start with "I am not aware of…", against 1% for SmolLM2. Most of those are only partial, though, as the model goes on to suggest a related option that does not fit, as in "I am not aware of a `--force-renew` flag in Kubernetes. You might be thinking of the `--certificate-authority` flag…".
