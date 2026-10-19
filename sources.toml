@@ -117,7 +117,8 @@ note = "GitHub wiki of the MeshCore repo; no separate license stated, assumed to
 [[corpus]]
 name = "fineweb-edu"
 dataset = "HuggingFaceFW/fineweb-edu"
-files = ["sample/10BT/000_00000.parquet", "sample/10BT/001_00000.parquet", "sample/10BT/002_00000.parquet"]
+files = ["sample/10BT/000_00000.parquet", "sample/10BT/001_00000.parquet", "sample/10BT/002_00000.parquet",
+         "sample/10BT/003_00000.parquet"]
 license = "ODC-BY-1.0"
 note = "about 0.7B tokens per file"
 

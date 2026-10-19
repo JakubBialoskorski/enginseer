@@ -9,6 +9,7 @@ SentencePiece BPE (not unigram, not HF byte-level BPE) because llama.cpp's SPM t
 which reproduces BPE exactly, and convert_hf_to_gguf.py loads tokenizer.model without a pre-tokenizer hash check.
 Settings follow Llama 2: byte fallback, split digits, no normalization, whitespace runs kept for code and YAML.
 Unlike Llama 2 there is no dummy prefix, so the HF tokenizer_config.json must say add_prefix_space: false.
+The training data wraps every document in <s> ... </s>, so inference adds BOS (add_bos_token: true).
 """
 
 import argparse
@@ -123,7 +124,7 @@ def cmd_hf(args):
     specials = ["<unk>", "<s>", "</s>", *SPECIAL]
     config = {
         "tokenizer_class": "LlamaTokenizer", "add_prefix_space": False, "legacy": False,
-        "add_bos_token": False, "add_eos_token": False, "bos_token": "<s>", "eos_token": "</s>", "unk_token": "<unk>",
+        "add_bos_token": True, "add_eos_token": False, "bos_token": "<s>", "eos_token": "</s>", "unk_token": "<unk>",
         "added_tokens_decoder": {str(sp.piece_to_id(t)): {"content": t, "special": True} for t in specials},
     }
     (hf / "tokenizer_config.json").write_text(json.dumps(config, indent=2) + "\n")

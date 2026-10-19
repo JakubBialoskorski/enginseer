@@ -1,0 +1,39 @@
+# 140M parameters on 3.1B tokens (~22 tokens per parameter, about Chinchilla-optimal), ~47 h on an RTX 3060.
+# 24 layers of width 640: at this size depth helps more than width (MobileLLM), for nearly the same throughput.
+
+[model]
+vocab_size = 32768
+dim = 640
+n_layers = 24
+n_heads = 10
+n_kv_heads = 10
+ffn_dim = 1728
+max_seq_len = 1024
+
+[train]
+total_tokens = 3_100_000_000
+micro_batch = 8
+grad_accum = 64  # 524,288 tokens per step
+lr = 1e-3
+min_lr_ratio = 0.1
+warmup_steps = 200
+weight_decay = 0.1
+grad_clip = 1.0
+anneal_fraction = 0.1
+seed = 0
+log_every = 10
+eval_every = 100
+eval_tokens = 262_144
+ckpt_minutes = 20
+
+# share of training tokens per source: FineWeb-Edu ~0.8 epochs, Cosmopedia ~1, the domain docs ~8
+[mix]
+fineweb-edu = 0.829
+cosmopedia = 0.160
+docs = 0.011
+
+# the last 10% of the steps, while the learning rate decays: more textbook and documentation text
+[anneal]
+fineweb-edu = 0.75
+cosmopedia = 0.20
+docs = 0.05
