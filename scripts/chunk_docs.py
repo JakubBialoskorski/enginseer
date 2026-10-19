@@ -5,7 +5,7 @@ Outputs:
   data/chunks.jsonl  heading-aware chunks of the train documents (input for SFT Q&A generation)
 
 The split is per document and deterministic (hash of source + path), so held-out docs never leak into training.
-Token counts use the Qwen3 tokenizer as a stand-in until our own tokenizer exists (stage 2).
+Token counts use the Qwen3 tokenizer, because chunking came before our own tokenizer (stage 2); they only set chunk sizes.
 """
 
 import argparse
