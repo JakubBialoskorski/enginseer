@@ -87,9 +87,24 @@ Runs are resumable. Ctrl+C, SIGTERM or `--until HH:MM` saves a checkpoint and ex
 | Config | Parameters | Shape | Tokens | Time on an RTX 3060 |
 |---|---|---|---|---|
 | `configs/test.toml` | 13M | 256 wide, 6 layers | 100M | 10 min |
-| `configs/base.toml` | 140M | 640 wide, 24 layers | 3.1B | ~47 h |
+| `configs/base.toml` | 140M | 640 wide, 24 layers | 3.1B | 44 h |
 
 The base model is 24 layers deep but only 640 wide, because at this size depth helps more than width (MobileLLM) for nearly the same throughput (~67M tokens/h). 3.1B tokens are about 22 per parameter, close to the Chinchilla-optimal ratio. In this mix the domain docs come back about 8 times, Cosmopedia once and FineWeb-Edu is not repeated.
+
+The base run took 44 h of GPU time, spread over four sessions with pauses in between, at ~19.5k tokens/s and 9.5 GiB of VRAM. Validation bits per byte:
+
+| Step | Tokens | Docs | FineWeb-Edu | Cosmopedia |
+|---|---|---|---|---|
+| 1000 | 0.5B | 0.996 | 1.121 | 0.780 |
+| 2000 | 1.0B | 0.884 | 1.045 | 0.693 |
+| 3000 | 1.6B | 0.834 | 1.007 | 0.651 |
+| 4000 | 2.1B | 0.798 | 0.982 | 0.623 |
+| 5000 | 2.6B | 0.778 | 0.966 | 0.604 |
+| 5913 (final) | 3.1B | 0.754 | 0.961 | 0.594 |
+
+The anneal phase (the last 591 steps) brought the docs from 0.776 to 0.754, while FineWeb-Edu, now a smaller share of the mix, still improved slightly. The model writes fluent, on-topic English but gets facts wrong, as expected at this size. A sample from the final checkpoint, prompted with "Photosynthesis is":
+
+> Photosynthesis is the process by which plants convert sunlight into carbohydrates (food) and oxygen. Photosynthesize to create various compounds that make up the food chain.
 
 ### Export and GGUF
 
@@ -99,7 +114,7 @@ The base model is 24 layers deep but only 640 wide, because at this size depth h
 .venv/bin/python scripts/check_gguf.py test out/runs/test/test-f16.gguf
 ```
 
-`export_hf.py` writes a `LlamaForCausalLM` directory and checks its logits against our model. `check_gguf.py` loads the GGUF in `llama-server` and compares it with SentencePiece and PyTorch. On the test model, all 1409 tokenizer eval docs get identical token ids, the top-1 next token matches on 32 of 32 held-out prefixes, and the top-10 log-probabilities differ by 0.002 on average (f16 vs fp32).
+`export_hf.py` writes a `LlamaForCausalLM` directory and checks its logits against our model. `check_gguf.py` loads the GGUF in `llama-server` and compares it with SentencePiece and PyTorch. On the test model, all 1409 tokenizer eval docs get identical token ids, the top-1 next token matches on 32 of 32 held-out prefixes, and the top-10 log-probabilities differ by 0.002 on average (f16 vs fp32). On the 140M base model the export is again bit-identical, the tokenizer check passes on all 1409 docs, the top-1 token matches on 32 of 32 prefixes and the top-10 log-probabilities differ by 0.007 on average (max 0.039).
 
 ## Instruction tuning
 

@@ -3,8 +3,8 @@
 [train]
 base = "base"
 epochs = 3
-micro_tokens = 8192          # padded tokens per micro-batch: 64 x 128 ... 8 x 1024
-grad_accum = 8
+micro_tokens = 4096          # padded tokens per micro-batch: 32 x 128 ... 4 x 1024 (8192 runs out of memory on 12 GB)
+grad_accum = 16
 lr = 1e-4                    # the learning rate pretraining ended with
 min_lr_ratio = 0.1
 warmup_steps = 30
