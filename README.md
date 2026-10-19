@@ -206,7 +206,7 @@ Q8_0 is lossless within noise and Q4_K_M costs 0.7%. Because the model is 640 wi
 
 Each group has up to 300 fact questions and 300 trick questions about options that do not exist. The teacher grades each answer against the reference as correct, partial or wrong and gives a one-sentence reason. On trick questions, correct means the model says there is no such option and makes nothing up afterwards. A regex also counts "I'm not aware"-style answers, independent of the judge.
 
-The baseline is SmolLM2-135M-Instruct, a model of the same size trained on 2T tokens, converted to Q8_0 GGUF and asked the same questions. The pretrain group has 273 fact and 75 trick questions, as not more documents qualify:
+The baseline is SmolLM2-135M-Instruct, a model of the same size trained on 2T tokens, converted to Q8_0 GGUF and asked the same questions. The pretrain group has only 273 fact and 75 trick questions, as that is all the SFT validation documents have:
 
 | Model | Group | Facts correct / partial | Tricks correct / partial | "Not aware" on tricks (regex) |
 |---|---|---|---|---|
