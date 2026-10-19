@@ -180,8 +180,23 @@ scripts/run_teacher.sh scripts/eval_judge.py judge sft
 | SmolLM-135M | 600B | 0.831 | 0.838 | 0.479* | 0.427 | 0.533 | 0.377 | 32.3 |
 | SmolLM2-135M | 2T | 0.768 | 0.842 | 0.513* | 0.432 | 0.530 | 0.429 | 19.3 |
 | Enginseer test, 13M | 0.1B | 1.306 | 1.439 | 1.128 | 0.253 | 0.514 | 0.008 | 28,412 |
+| Enginseer base, 140M | 3.1B | **0.718** | 0.949 | 0.576 | 0.324 | 0.528 | 0.257 | 100.0 |
+| Enginseer SFT, 140M | 3.1B + SFT | 0.760 | 0.968 | 0.606 | 0.320 | 0.527 | 0.260 | 101.5 |
 
 \* SmolLM was trained on Cosmopedia itself, so its Cosmopedia numbers are not a fair comparison. The public models may also have seen web copies of the documentation.
+
+With 200–600 times fewer training tokens, the base model has the lowest bits per byte on the held-out docs of all four models and beats GPT-2 on every column except LAMBADA, but it stays behind SmolLM on general English and on the benchmarks. LAMBADA needs the last word of a long narrative passage, and with only 3.1B tokens, mostly educational web text, that is its weakest point. SFT costs a little language modelling (0.04 bpb on the docs) and nothing measurable on the benchmarks.
+
+**GGUF quantization** (`llama-perplexity -f data/eval/heldout.txt -c 1024`, held-out docs):
+
+| Model | File | Size | Perplexity |
+|---|---|---|---|
+| base | f16 | 281 MB | 6.380 ± 0.039 |
+| SFT | f16 | 281 MB | 7.047 ± 0.044 |
+| SFT | Q8_0 | 150 MB | 7.048 ± 0.044 |
+| SFT | Q4_K_M | 112 MB | 7.098 ± 0.044 |
+
+Q8_0 is lossless within noise and Q4_K_M costs 0.7%. Because the model is 640 wide, which is not a multiple of 256, 168 of 218 tensors fall back from k-quants to simpler types in Q4_K_M. `check_gguf.py` on the SFT f16 file gives the same token ids on all 1409 docs, top-1 agreement 32 of 32 and a mean top-10 log-probability difference of 0.007.
 
 **Answer quality** (`eval_judge.py`). The chat model answers questions written by the teacher in three groups, which separate memorization from generalization:
 
