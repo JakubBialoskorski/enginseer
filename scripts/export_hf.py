@@ -1,11 +1,16 @@
 """Export a training run to a Hugging Face LlamaForCausalLM directory and check it against our own model.
 
   python scripts/export_hf.py test               # out/runs/test/final.pt (or ckpt.pt) -> out/runs/test/hf/
+  python scripts/export_hf.py sft --chat         # chat model: ChatML template, generation stops at <|im_end|>
   python /opt/llama.cpp/convert_hf_to_gguf.py out/runs/test/hf --outtype f16 --outfile out/runs/test/test-f16.gguf
 
 Our parameter names already match HF's, so the export only prefixes them with "model."; the output head is tied
 to the embedding, which LlamaForCausalLM handles with tie_word_embeddings. The check runs both models in fp32 on
 held-out tokens and compares the logits.
+
+--chat sets eos to <|im_end|> (config.json, which the GGUF converter reads, and tokenizer_config.json) and adds
+the ChatML template that build_sft.py trained on, starting with <s> (llama.cpp drops it when it adds its own).
+The model never saw a system role, so the template folds a system message into the first user turn.
 """
 
 import argparse
@@ -19,20 +24,32 @@ from model import Llama, ModelConfig
 from paths import DATA, OUT
 from transformers import LlamaConfig, LlamaForCausalLM
 
+IM_END = 4
+CHAT_TEMPLATE = (
+    "{{ bos_token }}{% set ns = namespace(system='') %}"
+    "{% for m in messages %}"
+    "{% if m['role'] == 'system' %}{% set ns.system = m['content'] | trim + '\\n\\n' %}"
+    "{% else %}{{ '<|im_start|>' + m['role'] + '\\n' + ns.system + m['content'] | trim + '<|im_end|>\\n' }}"
+    "{% set ns.system = '' %}{% endif %}"
+    "{% endfor %}"
+    "{% if add_generation_prompt %}{{ '<|im_start|>assistant\\n' }}{% endif %}"
+)
 
-def hf_config(cfg):
+
+def hf_config(cfg, eos=2):
     return LlamaConfig(
         vocab_size=cfg.vocab_size, hidden_size=cfg.dim, intermediate_size=cfg.ffn_dim,
         num_hidden_layers=cfg.n_layers, num_attention_heads=cfg.n_heads, num_key_value_heads=cfg.n_kv_heads,
         head_dim=cfg.head_dim, max_position_embeddings=cfg.max_seq_len, rms_norm_eps=cfg.norm_eps,
         rope_theta=cfg.rope_theta, hidden_act="silu", tie_word_embeddings=True,
-        bos_token_id=1, eos_token_id=2, torch_dtype="float32",
+        bos_token_id=1, eos_token_id=eos, torch_dtype="float32",
     )
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("run", help="run name under out/runs/")
+    parser.add_argument("--chat", action="store_true", help="SFT run: ChatML template and <|im_end|> as eos")
     args = parser.parse_args()
 
     run = OUT / "runs" / args.run
@@ -43,7 +60,7 @@ def main():
     ours.load_state_dict(ckpt["model"])
     ours.eval()
 
-    hf = LlamaForCausalLM(hf_config(cfg))
+    hf = LlamaForCausalLM(hf_config(cfg, IM_END if args.chat else 2))
     missing, unexpected = hf.load_state_dict({f"model.{k}": v for k, v in ckpt["model"].items()}, strict=False)
     assert not unexpected and set(missing) <= {"lm_head.weight"}, (missing, unexpected)
     hf.tie_weights()
@@ -53,6 +70,10 @@ def main():
     hf.save_pretrained(out)
     for f in (OUT / "tokenizer" / "hf").iterdir():
         shutil.copy(f, out / f.name)
+    if args.chat:
+        tc = json.loads((out / "tokenizer_config.json").read_text())
+        tc.update(eos_token="<|im_end|>", chat_template=CHAT_TEMPLATE)
+        (out / "tokenizer_config.json").write_text(json.dumps(tc, indent=2) + "\n")
     print(f"{src} -> {out} ({ours.num_params() / 1e6:.1f}M params)")
 
     data = np.fromfile(DATA / "tokens" / "val" / "docs.bin", dtype=np.uint16)

@@ -8,7 +8,8 @@ writes several key facts (commands, flags, config keys, defaults), each as 3-4 p
 answer, plus one trick question about an option that does not exist, answered with "I'm not aware of that".
 Every 10th chunk also gets one fact's question in another language (answer stays English).
 
-Output: data/sft/qa.jsonl, one line per chunk. Re-running skips chunks already done, so the run is resumable.
+Output: data/sft/qa.jsonl (or --out), one line per chunk. Re-running skips chunks already done, so the run is
+resumable. --chunks data/eval/chunks-heldout.jsonl generates the held-out eval questions the same way.
 Chunks are processed in priority order: hand-written docs first, generated API references last.
 """
 
@@ -134,13 +135,14 @@ def main():
     parser.add_argument("--workers", type=int, default=1, help="parallel requests (match the server's -np)")
     parser.add_argument("--limit", type=int, help="stop after this many chunks (pilot runs)")
     parser.add_argument("--until", help="HH:MM local time: send no new requests after that")
+    parser.add_argument("--chunks", default=str(DATA / "chunks.jsonl"))
     parser.add_argument("--out", default=str(DATA / "sft" / "qa.jsonl"))
     args = parser.parse_args()
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     done = {json.loads(line)["id"] for line in open(out)} if out.exists() else set()
-    chunks = [json.loads(line) for line in open(DATA / "chunks.jsonl")]
+    chunks = [json.loads(line) for line in open(args.chunks)]
     todo = sorted((c for c in chunks if c["tokens"] >= MIN_TOKENS and c["id"] not in done), key=priority)
     todo = todo[:args.limit] if args.limit else todo
     print(f"{len(done)} chunks done, {len(todo)} to go", flush=True)

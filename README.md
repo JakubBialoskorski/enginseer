@@ -130,7 +130,7 @@ scripts/run_teacher.sh --until 07:30   # starts llama-server with TEACHER_GGUF f
 .venv/bin/python scripts/build_sft.py
 ```
 
-Generation took ~23 h on the RTX 3060 (the MoE experts partly run on the CPU, ~40 output tokens/s over 4 parallel requests). It covered all 5,127 chunks with at least 80 tokens: 18,373 facts with 73,368 questions, 5,127 trick questions and 517 translated questions. `build_sft.py` drops answers that leak the setup ("the excerpt", "the documentation says"). That removes 23 fact answers but 12% of the trick answers, which tend to explain what the docs do list instead. Validation is a 2% split by source document, so no paraphrase of a val fact is trained on, plus oasst2's own validation split.
+Generation took ~23 h on the RTX 3060 (the MoE experts partly run on the CPU, ~40 output tokens/s over 4 parallel requests). It covered all 5,127 chunks with at least 80 tokens: 18,373 facts with 73,368 questions, 5,127 trick questions and 517 translated questions. `build_sft.py` drops answers that leak the setup ("the excerpt", "the documentation says"). That removes 23 fact answers but 12% of the trick answers, which tend to explain what the docs do list instead. Validation is a 2% split by source document, so no paraphrase of a val fact is trained on. Those documents were still part of pretraining (where the docs repeat about 8 times), so this split measures recall of text the model has read, not knowledge of new documentation. For that, validation also includes questions generated the same way from the held-out docs that neither pretraining nor SFT saw (`heldout`, see [Evaluation](#evaluation)), plus oasst2's own validation split.
 
 | Kind | Train examples | Train answer tokens | Val examples |
 |---|---|---|---|
@@ -156,5 +156,67 @@ On the 140M base model (`configs/sft.toml`) one epoch is 203 steps and takes 14 
 | Trick | 3.059 | 1.700 | 1.784 |
 | Translated | 2.675 | 1.727 | 2.109 |
 | oasst2 | 2.326 | 2.112 | 2.173 |
+| Held-out Q&A | 3.115 | 2.257 | 2.805 |
+| Held-out trick | 3.164 | 1.677 | 1.730 |
 
 A first run for three epochs overfit: Q&A validation loss was lowest after about half an epoch (2.23) and rose to 2.76 by the end, while training loss fell below 1. The model memorised the trained answers instead of the facts, so the config trains for one epoch and repeats the identity examples six times instead. After SFT the model calls itself Enginseer, answers in a few sentences, stops at `<|im_end|>` and declines some invented options ("I am not aware of a `--auto-heal` flag for `docker run`"), but the commands and keys it gives are often made up.
+
+## Evaluation
+
+Three kinds of measurement, all run on the same machine with the same code for every model:
+
+```sh
+.venv/bin/python scripts/eval_lm.py base sft openai-community/gpt2 HuggingFaceTB/SmolLM-135M HuggingFaceTB/SmolLM2-135M
+.venv/bin/python scripts/eval_judge.py answer sft --gguf out/runs/sft/sft-q8_0.gguf
+scripts/run_teacher.sh scripts/eval_judge.py judge sft
+.venv/bin/python scripts/eval_judge.py report
+```
+
+**Language modelling** (`eval_lm.py`). Bits per byte on our validation text, held-out docs plus FineWeb-Edu and Cosmopedia documents nobody trained on here. Each model reads the same raw text with its own tokenizer, so the numbers compare across tokenizers. Zero-shot HellaSwag, WinoGrande and LAMBADA are scored by log-likelihood as in lm-evaluation-harness. For GPT-2 the script reproduces the harness's published numbers exactly (HellaSwag acc_norm 0.312, WinoGrande 0.516, LAMBADA 0.326 / perplexity 40.1). Only benchmarks under permissive licenses are used, so ARC is left out.
+
+| Model | Training tokens | bpb docs | bpb FineWeb-Edu | bpb Cosmopedia | HellaSwag | WinoGrande | LAMBADA acc | LAMBADA ppl |
+|---|---|---|---|---|---|---|---|---|
+| GPT-2 124M | WebText, 40 GB of text | 1.051 | 0.983 | 0.829 | 0.312 | 0.516 | 0.326 | 40.1 |
+| SmolLM-135M | 600B | 0.831 | 0.838 | 0.479* | 0.427 | 0.533 | 0.377 | 32.3 |
+| SmolLM2-135M | 2T | 0.768 | 0.842 | 0.513* | 0.432 | 0.530 | 0.429 | 19.3 |
+| Enginseer test, 13M | 0.1B | 1.306 | 1.439 | 1.128 | 0.253 | 0.514 | 0.008 | 28,412 |
+| Enginseer base, 140M | 3.1B | **0.718** | 0.949 | 0.576 | 0.324 | 0.528 | 0.257 | 100.0 |
+| Enginseer SFT, 140M | 3.1B + SFT | 0.760 | 0.968 | 0.606 | 0.320 | 0.527 | 0.260 | 101.5 |
+
+\* SmolLM was trained on Cosmopedia itself, so its Cosmopedia numbers are not a fair comparison. The public models may also have seen web copies of the documentation.
+
+With 200–600 times fewer training tokens, the base model has the lowest bits per byte on the held-out docs of all four models and beats GPT-2 on every column except LAMBADA, but it stays behind SmolLM on general English and on the benchmarks. LAMBADA needs the last word of a long narrative passage, and with only 3.1B tokens, mostly educational web text, that is its weakest point. SFT costs a little language modelling (0.04 bpb on the docs) and nothing measurable on the benchmarks.
+
+**GGUF quantization** (`llama-perplexity -f data/eval/heldout.txt -c 1024`, held-out docs):
+
+| Model | File | Size | Perplexity |
+|---|---|---|---|
+| base | f16 | 281 MB | 6.380 ± 0.039 |
+| SFT | f16 | 281 MB | 7.047 ± 0.044 |
+| SFT | Q8_0 | 150 MB | 7.048 ± 0.044 |
+| SFT | Q4_K_M | 112 MB | 7.098 ± 0.044 |
+
+Q8_0 is lossless within noise and Q4_K_M costs 0.7%. Because the model is 640 wide, which is not a multiple of 256, 168 of 218 tensors fall back from k-quants to simpler types in Q4_K_M. `check_gguf.py` on the SFT f16 file gives the same token ids on all 1409 docs, top-1 agreement 32 of 32 and a mean top-10 log-probability difference of 0.007.
+
+**Answer quality** (`eval_judge.py`). The chat model answers questions written by the teacher in three groups, which separate memorization from generalization:
+
+- *sft*: questions the model was trained on.
+- *pretrain*: questions about documents that were in pretraining but had no questions in SFT.
+- *heldout*: questions about the 153 held-out documents that neither stage saw, generated the same way (`scripts/chunk_heldout.py`, then `gen_qa.py --chunks`).
+
+Each group has up to 300 fact questions and 300 trick questions about options that do not exist. The teacher grades each answer against the reference as correct, partial or wrong and gives a one-sentence reason. On trick questions, correct means the model says there is no such option and makes nothing up afterwards. A regex also counts "I'm not aware"-style answers, independent of the judge.
+
+The baseline is SmolLM2-135M-Instruct, a model of the same size trained on 2T tokens, converted to Q8_0 GGUF and asked the same questions. The pretrain group has only 273 fact and 75 trick questions, as that is all the SFT validation documents have:
+
+| Model | Group | Facts correct / partial | Tricks correct / partial | "Not aware" on tricks (regex) |
+|---|---|---|---|---|
+| SmolLM2-135M-Instruct | sft | 1.0% / 0.7% | 0.0% / 0.3% | 0.3% |
+| SmolLM2-135M-Instruct | pretrain | 0.4% / 0.7% | 0.0% / 0.0% | 0.0% |
+| SmolLM2-135M-Instruct | heldout | 0.3% / 1.0% | 0.0% / 0.3% | 1.3% |
+| Enginseer SFT, Q8_0 | sft | 8.3% / 5.3% | 10.0% / 42.0% | 86.0% |
+| Enginseer SFT, Q8_0 | pretrain | 2.6% / 1.8% | 5.3% / 41.3% | 85.3% |
+| Enginseer SFT, Q8_0 | heldout | 3.3% / 1.7% | 10.7% / 36.7% | 87.0% |
+
+At this size a general model knows almost none of these specific facts, and it accepts every invented flag as real: in the judge's words, it "hallucinates a non-existent command `pod-suspend` and falsely claims the `--force-suspend` flag exists". Here SmolLM2's "sft" and "pretrain" groups are just question sets, since it never trained on them.
+
+Enginseer answers 8% of the trained fact questions correctly, but only 3% about documents it read in pretraining or never saw, so SFT taught it mostly the trained answers, not to recall what it read. It is still more than SmolLM2 gets, because it knows the products and the shape of a right answer (`kubectl proxy --port=8080`, the `labelSelector` query parameter). On trick questions it learned to decline, on held-out docs as well as trained ones: 87% of its answers start with "I am not aware of…", against 1% for SmolLM2. Most of those are only partial, though, as the model goes on to suggest a related option that does not fit, as in "I am not aware of a `--force-renew` flag in Kubernetes. You might be thinking of the `--certificate-authority` flag…".
