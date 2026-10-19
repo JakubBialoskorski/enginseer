@@ -2,7 +2,7 @@
 
 [train]
 base = "base"
-epochs = 3
+epochs = 1                   # val loss is lowest after one epoch; 3 epochs overfit (Q&A val 2.23 -> 2.76)
 micro_tokens = 4096          # padded tokens per micro-batch: 32 x 128 ... 4 x 1024 (8192 runs out of memory on 12 GB)
 grad_accum = 16
 lr = 1e-4                    # the learning rate pretraining ended with
@@ -20,4 +20,4 @@ qa = 1
 trick = 1
 translated = 1
 oasst = 1
-identity = 2
+identity = 6
