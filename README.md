@@ -147,3 +147,14 @@ Only the answers and their closing `<|im_end|>` are trained on, and generation s
 ```
 
 On the 13M test model (`configs/sft-test.toml`, one epoch, 202 steps, 5 minutes), validation loss fell from 4.83 to 3.72 on Q&A, from 4.56 to 2.91 on trick questions and from 4.08 to 3.86 on oasst2.
+
+On the 140M base model (`configs/sft.toml`) one epoch is 203 steps and takes 14 minutes. Validation loss per answer token:
+
+| Kind | Base model | 1 epoch | 3 epochs |
+|---|---|---|---|
+| Q&A | 3.002 | 2.202 | 2.761 |
+| Trick | 3.059 | 1.700 | 1.784 |
+| Translated | 2.675 | 1.727 | 2.109 |
+| oasst2 | 2.326 | 2.112 | 2.173 |
+
+A first run for three epochs overfit: Q&A validation loss was lowest after about half an epoch (2.23) and rose to 2.76 by the end, while training loss fell below 1. The model memorised the trained answers instead of the facts, so the config trains for one epoch and repeats the identity examples six times instead. After SFT the model calls itself Enginseer, answers in a few sentences, stops at `<|im_end|>` and declines some invented options ("I am not aware of a `--auto-heal` flag for `docker run`"), but the commands and keys it gives are often made up.
