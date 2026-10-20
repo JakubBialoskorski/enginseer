@@ -144,7 +144,7 @@ Only the answers and their closing `<|im_end|>` are trained on, and generation s
 /opt/llama.cpp/build/bin/llama-quantize out/runs/sft/sft-f16.gguf out/runs/sft/sft-q4_k_m.gguf Q4_K_M
 ```
 
-`--chat` adds the ChatML template to the export and makes `<|im_end|>` the end-of-sequence token, so llama.cpp stops there. The template drops system messages: the model never saw one, and chat apps such as Jan send a long default system prompt that would otherwise end up in front of the first question. It also writes sampling defaults (temperature 0.7, top-p 0.9, repeat penalty 1.1) to `generation_config.json`, which the converter stores in the GGUF and llama.cpp applies unless told otherwise.
+`--chat` adds the ChatML template to the export and makes `<|im_end|>` the end-of-sequence token, so llama.cpp stops there. The template drops system messages: the model never saw one, and chat apps such as Jan send a long default system prompt that would otherwise end up in front of the first question. It also writes the sampling defaults of the evaluation (greedy decoding, temperature 0, and repeat penalty 1.1) to `generation_config.json`, which the converter stores in the GGUF and llama.cpp applies unless told otherwise.
 
 One epoch on the 140M base model (`configs/sft.toml`) is 79 steps and takes about 6 minutes. Validation loss per answer token:
 
@@ -210,7 +210,7 @@ Q8_0 is lossless within noise and Q4_K_M costs 0.7%. Because the model is 640 wi
 
 Each doc group has up to 300 fact questions and 300 trick questions about options that do not exist. On trick questions, correct means the model says there is no such option and makes nothing up afterwards. A regex also counts "I'm not aware"-style answers, independent of the judge.
 
-The baseline is SmolLM2-135M-Instruct, a model of the same size trained on 2T tokens, converted to Q8_0 GGUF and asked the same questions. All models answer greedily (temperature 0). General chat:
+The baseline is SmolLM2-135M-Instruct, a model of the same size trained on 2T tokens, converted to Q8_0 GGUF and asked the same questions. All models answer greedily (temperature 0), with each GGUF's default repeat penalty (1.1 for Enginseer). General chat:
 
 | Model | Everyday correct / partial | Invented correct / partial | Other languages correct / partial |
 |---|---|---|---|

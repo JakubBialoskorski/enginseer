@@ -37,7 +37,7 @@ Chat answers graded by the teacher, on conversations held out from instruction t
 
 ## Running the model
 
-The chat model runs in any llama.cpp-based app, such as [Jan](https://jan.ai) or LM Studio. Load `sft-q8_0.gguf` and set the context to 1024 tokens. The GGUF stores the ChatML template and the sampling defaults (temperature 0.7, top-p 0.9, repeat penalty 1.1; without the penalty longer answers tend to loop). The template drops system prompts, because the model never saw one and is too small to follow it.
+The chat model runs in any llama.cpp-based app, such as [Jan](https://jan.ai) or LM Studio. Load `sft-q8_0.gguf` and set the context to 1024 tokens. The GGUF stores the ChatML template and the sampling defaults used in the evaluation: greedy decoding (temperature 0), which always picks the most likely token, and repeat penalty 1.1, without which longer answers tend to loop. Raising the temperature gives more varied but less sensible answers. The template drops system prompts, because the model never saw one and is too small to follow it.
 
 With `llama-server`:
 
