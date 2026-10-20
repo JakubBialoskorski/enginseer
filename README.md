@@ -10,7 +10,7 @@ A small English chat model, written and trained from scratch on a single RTX 306
 - **Output:** Hugging Face `LlamaForCausalLM` weights, converted to GGUF (f16, Q8_0, Q4_K_M) with the stock llama.cpp converter.
 - **Data:** permissively licensed sources only (CC-BY, Apache, MIT, BSD, MPL, ODC-BY), each recorded with its license in [`sources.toml`](sources.toml).
 
-How each stage works, with all measurements: [docs/TECHNICAL.md](docs/TECHNICAL.md).
+How each stage works, with all measurements: [docs/TECHNICAL.md](docs/TECHNICAL.md). The GGUF files are on Hugging Face: [JakubBialoskorski/enginseer-140m-GGUF](https://huggingface.co/JakubBialoskorski/enginseer-140m-GGUF).
 
 ## Results
 
@@ -37,12 +37,12 @@ Chat answers graded by the teacher, on conversations held out from instruction t
 
 ## Running the model
 
-The chat model runs in any llama.cpp-based app, such as [Jan](https://jan.ai) or LM Studio. Load `sft-q8_0.gguf` and set the context to 1024 tokens. The GGUF stores the ChatML template and the sampling defaults used in the evaluation: greedy decoding (temperature 0), which always picks the most likely token, and repeat penalty 1.1, without which longer answers tend to loop. Raising the temperature gives more varied but less sensible answers. The template drops system prompts, because the model never saw one and is too small to follow it.
+The chat model runs in any llama.cpp-based app, such as [Jan](https://jan.ai) or LM Studio. Download `enginseer-140m-Q8_0.gguf` from [Hugging Face](https://huggingface.co/JakubBialoskorski/enginseer-140m-GGUF) (`sft-q8_0.gguf` when built from this repository), load it and set the context to 1024 tokens. The GGUF stores the ChatML template and the sampling defaults used in the evaluation: greedy decoding (temperature 0), which always picks the most likely token, and repeat penalty 1.1, without which longer answers tend to loop. Raising the temperature gives more varied but less sensible answers. The template drops system prompts, because the model never saw one and is too small to follow it.
 
 With `llama-server`:
 
 ```sh
-llama-server -m sft-q8_0.gguf -c 1024 --port 8080
+llama-server -m enginseer-140m-Q8_0.gguf -c 1024 --port 8080
 curl -s localhost:8080/v1/chat/completions -d '{"messages": [{"role": "user", "content": "Give me three tips for sleeping better."}]}'
 ```
 
