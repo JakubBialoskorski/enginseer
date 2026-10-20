@@ -16,8 +16,11 @@ eval_every = 100
 
 # times every example kind is seen per epoch
 [repeat]
+chat = 1
+skill = 1
+invented = 1
+language = 1
 qa = 1
 trick = 1
-translated = 1
 oasst = 1
 identity = 6
