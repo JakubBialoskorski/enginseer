@@ -28,11 +28,13 @@ from paths import DATA, OUT
 from transformers import LlamaConfig, LlamaForCausalLM
 
 IM_END = 4
+# The system branch reads the content without printing it: llama.cpp treats a template that never reads it as
+# having no system role and prepends the system prompt (and tool descriptions) to the first user message.
 CHAT_TEMPLATE = (
     "{{ bos_token }}"
     "{% for m in messages %}{% if m['role'] != 'system' %}"
     "{{ '<|im_start|>' + m['role'] + '\\n' + m['content'] | trim + '<|im_end|>\\n' }}"
-    "{% endif %}{% endfor %}"
+    "{% elif m['content'] %}{% endif %}{% endfor %}"
     "{% if add_generation_prompt %}{{ '<|im_start|>assistant\\n' }}{% endif %}"
 )
 SAMPLING = {"temperature": 0.7, "top_p": 0.9, "repetition_penalty": 1.1}
