@@ -10,7 +10,10 @@ held-out tokens and compares the logits.
 
 --chat sets eos to <|im_end|> (config.json, which the GGUF converter reads, and tokenizer_config.json) and adds
 the ChatML template that build_sft.py trained on, starting with <s> (llama.cpp drops it when it adds its own).
-The model never saw a system role, so the template folds a system message into the first user turn.
+The model never saw a system role and is too small to follow one, so the template drops system messages: chat
+apps such as Jan send a long default system prompt, which would otherwise end up in front of the first question.
+It also writes sampling defaults to generation_config.json, which the GGUF converter stores in the GGUF and
+llama.cpp uses unless told otherwise: without a repeat penalty, longer answers tend to loop.
 """
 
 import argparse
@@ -26,14 +29,13 @@ from transformers import LlamaConfig, LlamaForCausalLM
 
 IM_END = 4
 CHAT_TEMPLATE = (
-    "{{ bos_token }}{% set ns = namespace(system='') %}"
-    "{% for m in messages %}"
-    "{% if m['role'] == 'system' %}{% set ns.system = m['content'] | trim + '\\n\\n' %}"
-    "{% else %}{{ '<|im_start|>' + m['role'] + '\\n' + ns.system + m['content'] | trim + '<|im_end|>\\n' }}"
-    "{% set ns.system = '' %}{% endif %}"
-    "{% endfor %}"
+    "{{ bos_token }}"
+    "{% for m in messages %}{% if m['role'] != 'system' %}"
+    "{{ '<|im_start|>' + m['role'] + '\\n' + m['content'] | trim + '<|im_end|>\\n' }}"
+    "{% endif %}{% endfor %}"
     "{% if add_generation_prompt %}{{ '<|im_start|>assistant\\n' }}{% endif %}"
 )
+SAMPLING = {"temperature": 0.7, "top_p": 0.9, "repetition_penalty": 1.1}
 
 
 def hf_config(cfg, eos=2):
@@ -74,6 +76,9 @@ def main():
         tc = json.loads((out / "tokenizer_config.json").read_text())
         tc.update(eos_token="<|im_end|>", chat_template=CHAT_TEMPLATE)
         (out / "tokenizer_config.json").write_text(json.dumps(tc, indent=2) + "\n")
+        gc = json.loads((out / "generation_config.json").read_text())
+        gc.update(do_sample=True, **SAMPLING)
+        (out / "generation_config.json").write_text(json.dumps(gc, indent=2) + "\n")
     print(f"{src} -> {out} ({ours.num_params() / 1e6:.1f}M params)")
 
     data = np.fromfile(DATA / "tokens" / "val" / "docs.bin", dtype=np.uint16)
