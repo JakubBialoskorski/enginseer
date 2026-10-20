@@ -4,8 +4,8 @@
   scripts/run_teacher.sh scripts/eval_judge.py judge sft                         # the teacher grades
   python scripts/eval_judge.py report
 
-Questions come in three groups, to tell memorization from generalization:
-  sft        facts from data/sft/qa.jsonl in the SFT train split (the model was trained on these exact questions)
+Doc questions come in three groups, to tell memorization from generalization:
+  sft        facts from data/sft/qa.jsonl that SFT was trained on (these exact questions)
   pretrain   facts from the SFT val docs: the doc was in pretraining, but no question about it was in SFT
   heldout    facts from data/eval/qa-heldout.jsonl: neither pretraining nor SFT saw the doc
 Each group has the first question of up to --n facts and up to --n trick questions about options that do not
@@ -13,6 +13,10 @@ exist. The judge sees the question, the reference answer and the model's answer,
 wrong; on trick questions, correct means the model said there is no such option and nothing false after
 that, partial that it said so but then made things up. Abstentions ("I'm not aware")
 are also counted by a regex, which does not depend on the judge.
+
+A fourth group, general, comes from the chat val split of data/sft/chat.jsonl: everyday questions (kind chat),
+questions about things that do not exist (invented) and messages in other languages (language), which should
+get an English reply asking to write in English.
 
 Output in out/eval/judge/: <name>.answers.jsonl, <name>.judged.jsonl (both resumable) and <name>.json.
 """
@@ -28,6 +32,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from build_sft import chat_split, keep_qa
 from paths import DATA, OUT
 
 DIR = OUT / "eval" / "judge"
@@ -45,6 +50,27 @@ makes no wrong claim that matters. Different wording or extra correct detail is 
 - "wrong": the key fact is wrong, missing, made up or off topic, or the answer is unreadable.
 {trick}
 Give a one-sentence reason first, then the verdict. Return JSON only."""
+GENERAL = """You grade the answers of a small English chat assistant. You get a user message, a reference answer \
+that is good, and the assistant's answer.
+
+Grade the assistant's answer:
+{grades}
+Give a one-sentence reason first, then the verdict. Return JSON only."""
+GRADES = {
+    "chat": """- "correct": it answers the message helpfully and correctly in fluent English. It need not match the \
+reference, but makes no wrong claim that matters.
+- "partial": it is on topic and readable, but incomplete, vague or with a minor error.
+- "wrong": it makes wrong claims that matter, is off topic, repeats itself or is unreadable.""",
+    "invented": """The message asks about something that does NOT exist.
+- "correct": the assistant says it does not know it or that it does not exist, and makes nothing up.
+- "partial": it doubts it, but then makes up some details anyway.
+- "wrong": it describes it as if it were real, or ignores the question.""",
+    "language": """The message is not in English, and the assistant only speaks English.
+- "correct": it replies in English and asks the user to write in English (or says it only speaks English).
+- "partial": it replies in English but also tries to answer and gets confused.
+- "wrong": it replies in another language, or with something unrelated or unreadable.""",
+}
+GENERAL_KINDS = {"grounded": "chat", "explain": "chat", "advice": "chat", "math": "chat", "invented": "invented"}
 TRICK = """This question asks about an option that does NOT exist, so the grades above mean instead:
 - "correct": the assistant says it does not know such an option or that it does not exist, and claims nothing \
 false afterwards. Pointing to a related real option is good but not required.
@@ -65,14 +91,30 @@ def questions(n):
         for row in map(json.loads, open(path)):
             g = group if group == "heldout" else ("pretrain" if sft_split(row["doc"]) else "sft")
             for i, fact in enumerate(row["facts"]):
-                groups[g].append({"id": f"{row['id']}/{i}", "group": g, "kind": "fact", "product": row["product"],
-                                  "question": fact["questions"][0], "reference": fact["answer"]})
-            groups[g].append({"id": f"{row['id']}/trick", "group": g, "kind": "trick", "product": row["product"],
-                              "question": row["trick"]["question"], "reference": row["trick"]["answer"]})
+                if g != "sft" or keep_qa(f"{row['id']}/{i}"):
+                    groups[g].append({"id": f"{row['id']}/{i}", "group": g, "kind": "fact",
+                                      "product": row["product"], "question": fact["questions"][0],
+                                      "reference": fact["answer"]})
+            if g != "sft" or keep_qa(f"{row['id']}/trick"):
+                groups[g].append({"id": f"{row['id']}/trick", "group": g, "kind": "trick", "product": row["product"],
+                                  "question": row["trick"]["question"], "reference": row["trick"]["answer"]})
+    general = []
+    for row in map(json.loads, open(DATA / "sft" / "chat.jsonl")):
+        if chat_split(row["id"]) != "val":
+            continue
+        if row["kind"] == "language":
+            general += [{"id": f"{row['id']}/{i}", "group": "general", "kind": "language", "question": m,
+                         "reference": "Sorry, I can only chat in English. Could you write your message in English?"}
+                        for i, m in enumerate(row["messages"])]
+        elif kind := GENERAL_KINDS.get(row.get("category", row["kind"])):
+            general += [{"id": f"{row['id']}/{i}", "group": "general", "kind": kind, "question": c["turns"][0]["user"],
+                         "reference": c["turns"][0]["assistant"]} for i, c in enumerate(row["conversations"])]
     out = []
     for items in groups.values():
         for kind in ("fact", "trick"):
             out += sample([q for q in items if q["kind"] == kind], n, lambda q: q["id"])
+    for kind in ("chat", "invented", "language"):
+        out += sample([q for q in general if q["kind"] == kind], n, lambda q: q["id"])
     return out
 
 
@@ -125,7 +167,8 @@ def answer(args):
         return {**q, "answer": c["message"]["content"].strip(), "finish_reason": c["finish_reason"]}
 
     try:
-        run_all(fn, questions(args.n), DIR / f"{args.name}.answers.jsonl", args.workers)
+        items = [q for q in questions(args.n) if not args.groups or q["group"] in args.groups.split(",")]
+        run_all(fn, items, DIR / f"{args.name}.answers.jsonl", args.workers)
     finally:
         if proc:
             proc.kill()
@@ -138,7 +181,10 @@ def judge(args):
                              "verdict": {"type": "string", "enum": ["correct", "partial", "wrong"]}}}
 
     def fn(q):
-        system = JUDGE.format(product=q["product"], trick=TRICK if q["kind"] == "trick" else "")
+        if q["group"] == "general":
+            system = GENERAL.format(grades=GRADES[q["kind"]])
+        else:
+            system = JUDGE.format(product=q["product"], trick=TRICK if q["kind"] == "trick" else "")
         user = f"Question: {q['question']}\n\nReference answer: {q['reference']}\n\nAssistant's answer: {q['answer']}"
         body = {"model": args.model, "messages": [{"role": "system", "content": system},
                                                   {"role": "user", "content": user}],
@@ -155,8 +201,9 @@ def summarize(name):
     answers = {r["id"]: r for r in map(json.loads, open(DIR / f"{name}.answers.jsonl"))}
     verdicts = {r["id"]: r["verdict"] for r in map(json.loads, open(DIR / f"{name}.judged.jsonl"))}
     res = {}
-    for group in ("sft", "pretrain", "heldout"):
-        for kind in ("fact", "trick"):
+    for group, kinds in (("sft", ("fact", "trick")), ("pretrain", ("fact", "trick")),
+                         ("heldout", ("fact", "trick")), ("general", ("chat", "invented", "language"))):
+        for kind in kinds:
             rows = [a for a in answers.values() if a["group"] == group and a["kind"] == kind and a["id"] in verdicts]
             if not rows:
                 continue
@@ -186,6 +233,7 @@ def main():
     parser.add_argument("--url", default="http://127.0.0.1:8081", help="answer without --gguf, or the judge")
     parser.add_argument("--model", default="qwen3.6-35b-a3b", help="judge model name")
     parser.add_argument("--n", type=int, default=300, help="facts and trick questions per group")
+    parser.add_argument("--groups", help="answer: only these groups, comma-separated (e.g. general)")
     parser.add_argument("--max-tokens", type=int, default=300)
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args()

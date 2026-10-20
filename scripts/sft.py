@@ -7,7 +7,7 @@ The loss covers only answer tokens (and the closing <|im_end|>), averaged over a
 
 Batches are built per length bucket (128/256/512/1024 tokens, right-padded) with a fixed token budget per
 micro-batch, so short Q&A pairs are not padded to the full context and torch.compile sees only four shapes.
-Every example kind (qa, trick, translated, oasst, identity) can be repeated per epoch with [repeat].
+Every example kind (chat, skill, invented, language, qa, trick, oasst, identity) can be repeated per epoch with [repeat].
 """
 
 import argparse
@@ -28,12 +28,12 @@ from train import lr_at
 
 BUCKETS = (128, 256, 512, 1024)
 SAMPLE_QUESTIONS = [
-    "How do I restart a service in OpenRC?",
-    "What does `kubectl drain` do?",
-    "How do I set a custom DNS forwarder in Unbound?",
-    "Does Docker have a `--auto-heal` flag for `docker run`?",
+    "Why is the sky blue?",
+    "Give me three tips for sleeping better.",
+    "Who wrote the novel 'The Silver Orchard of Kaltberg'?",
+    "Cześć, jak się masz?",
     "Who are you?",
-    "Give me three tips for writing a good README.",
+    "What does `kubectl drain` do?",
 ]
 
 
