@@ -12,7 +12,7 @@ held-out tokens and compares the logits.
 the ChatML template that build_sft.py trained on, starting with <s> (llama.cpp drops it when it adds its own).
 The model never saw a system role and is too small to follow one, so the template drops system messages: chat
 apps such as Jan send a long default system prompt, which would otherwise end up in front of the first question.
-It also writes sampling defaults to generation_config.json, which the GGUF converter stores in the GGUF and
+It also writes greedy sampling defaults to generation_config.json, which the GGUF converter stores in the GGUF and
 llama.cpp uses unless told otherwise: without a repeat penalty, longer answers tend to loop.
 """
 
@@ -37,7 +37,8 @@ CHAT_TEMPLATE = (
     "{% elif m['content'] %}{% endif %}{% endfor %}"
     "{% if add_generation_prompt %}{{ '<|im_start|>assistant\\n' }}{% endif %}"
 )
-SAMPLING = {"temperature": 0.7, "top_p": 0.9, "repetition_penalty": 1.1}
+# greedy, as in the evaluation; without the repeat penalty longer answers tend to loop
+SAMPLING = {"do_sample": False, "temperature": 0.0, "repetition_penalty": 1.1}
 
 
 def hf_config(cfg, eos=2):
@@ -79,7 +80,7 @@ def main():
         tc.update(eos_token="<|im_end|>", chat_template=CHAT_TEMPLATE)
         (out / "tokenizer_config.json").write_text(json.dumps(tc, indent=2) + "\n")
         gc = json.loads((out / "generation_config.json").read_text())
-        gc.update(do_sample=True, **SAMPLING)
+        gc.update(SAMPLING)
         (out / "generation_config.json").write_text(json.dumps(gc, indent=2) + "\n")
     print(f"{src} -> {out} ({ours.num_params() / 1e6:.1f}M params)")
 
