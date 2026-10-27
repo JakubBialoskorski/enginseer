@@ -1,8 +1,8 @@
 # Enginseer
 
-A small English chat model, written and trained from scratch on a single RTX 3060 as a proof of concept: tokenizer, model code, training loop, pretraining, instruction data, evaluation and GGUF export are all built in this repository. No existing model was fine-tuned or copied. It is a general chat model, not an expert in anything: at 140M parameters it writes fluent English, but it may get facts wrong, so check anything important.
+A small chat model, written and trained from scratch on a single RTX 3060 as a proof of concept: tokenizer, model code, training loop, pretraining, instruction data, evaluation and GGUF export are all built in this repository. No existing model was fine-tuned or copied. It is a general chat model, not an expert in anything: at 140M parameters it writes fluent English, but it may get facts wrong, so check anything important.
 
-- **English only.** It was trained on English text only. Messages in other languages get a short English reply asking to write in English.
+- **English only.** Messages in other languages get a short English reply asking to write in English.
 - **Model:** Llama-compatible decoder (RMSNorm, RoPE, SwiGLU), 140M parameters, 24 layers × 640 wide, 1024-token context, written in plain PyTorch.
 - **Tokenizer:** own SentencePiece BPE, 32k vocabulary.
 - **Pretraining:** 3.1B tokens in 44 h, almost all general English (FineWeb-Edu and Cosmopedia), plus about 1.5% documentation for DevOps tools, mostly Kubernetes and Docker.
